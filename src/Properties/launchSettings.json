@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SecretKeeper": {
+      "commandName": "Project",
+      "commandLineArgs": "\"D:\\tmp\\secrets\\owls.txt\""
+    }
+  }
+}
