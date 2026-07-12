@@ -88,10 +88,13 @@ internal class CmdArgs
 		catch (MissingsArgException) { return null; }
 	}
 
+	public bool Contains(string item) => args.Contains(item);
+	public bool ContainsKey(params string[] keys) => keys.Any(kargs.ContainsKey);
+
 	public void AssertUnknownArgs()
 	{
 		if (argsUnused.Count > 0)
-			throw new CmdArgException($"Unknown extra positional arguments {string.Join(", ", argsUnused.ToList().Select(p => p.Value))}");
+			throw new CmdArgException($"Unknown extra positional arguments: {string.Join(", ", argsUnused.ToList().Select(p => p.Value))}");
 		if (kargsUnused.Count > 0)
 			throw new CmdArgException($"Unknown named arguments: {string.Join(", ", kargsUnused.ToList().Select(p => p.Key))}");
 	}
