@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "sek": {
+      "commandName": "Project",
+      "commandLineArgs": "-d D:\\tmp\\secrets -f gos2"
+    }
+  }
+}
