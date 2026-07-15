@@ -1,8 +1,14 @@
 {
   "profiles": {
-    "sek": {
+    "archive": {
+        "commandName": "Project",
+        "commandLineArgs": "--archive test.zip --file test.txt",
+        "workingDirectory": "D:\\tmp\\sek"
+    },
+    "file": {
       "commandName": "Project",
-      "commandLineArgs": "-d D:\\tmp\\secrets -f gos2"
+      "commandLineArgs": "--file test.txt",
+      "workingDirectory": "D:\\tmp\\sek"
     }
   }
 }

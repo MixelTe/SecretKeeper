@@ -1,47 +1,46 @@
-﻿namespace sek;
+﻿using System.Text.RegularExpressions;
 
-internal static class SecretValueExtractor
+namespace sek;
+
+class SecretValueExtractor(DataSource dataSource, string sectionName, string[] paramNames)
 {
-	public static string Extract(string path, string? key, string? section)
+	private readonly HashSet<string> _ParamNames = new HashSet<string>(paramNames, StringComparer.InvariantCultureIgnoreCase);
+
+	public string? ExtractValue()
 	{
-		key = Utils.NormalizeName(key);
-		section = Utils.NormalizeName(section);
-		if (key == null || key == "password" || key == "пароль") key = "pwd";
-		if (section == null) section = "";
-
-		var file = SecretValueFile.FromPath(path);
-		using var reader = file.OpenText(RequestMasterPassword);
-
-		var curSection = "";
-		string? line;
-		while ((line = reader.ReadLine()) != null)
+		using (dataSource.container)
+		using (var reader = new StreamReader(dataSource.stream, detectEncodingFromByteOrderMarks: true))
 		{
-			if (line.StartsWith(' ') || line.StartsWith('\t')) continue;
-			if (line.StartsWith("---"))
+			var reSection = new Regex(@"^-{3,}\s*(?'name'.*?)\s*-*\s*$");
+			var reParameter = new Regex(@"^(?'name'\S.*?)\s*:\s*(?'value'.*?)\s*$");
+
+			var curSectionName = "";
+
+			// ищем параметры в разделах без имени, только если раздел не задан
+			// фактически, это будет только часть файла до первого разделителя разделов
+
+			while (reader.ReadLine() is string line)
 			{
-				curSection = Utils.NormalizeName(line);
-				continue;
+				if (reSection.Match(line) is var mSection && mSection.Success)
+				{
+					// согласно ТЗ: если раздел не указан, ищем только в начальной части файла, ДО первого раздела
+					if (sectionName.IsEmpty()) break;
+
+					curSectionName = mSection.Groups["name"].Value;
+				}
+				else if (curSectionName.EqualsCI(sectionName))
+				{
+					if (reParameter.Match(line) is var mParam && mParam.Success)
+					{
+						var paramName = mParam.Groups["name"].Value;
+						var paramValue = mParam.Groups["value"].Value;
+
+						if (_ParamNames.Contains(paramName)) return paramValue;
+					}
+				}
 			}
-			if (curSection != section) continue;
 
-			var colonI = line.IndexOf(':');
-			if (colonI < 0) continue;
-
-			var vKey = Utils.NormalizeName(line[..colonI]);
-			if (vKey != key && !(key == "pwd" && (vKey == "password" || vKey == "пароль"))) continue;
-
-			var value = line[(colonI + 1)..].Trim();
-			if (key == "totp")
-				return Utils.ComputeTotp(value);
-			return value;
+			return null;
 		}
-		throw new Exception($"Key \"{key}\" not found in section \"{section}\" of file at {file.VPath}");
 	}
-
-	private static string RequestMasterPassword()
-	{
-		if (Utils.IsInteractive) Console.Write("Enter master password: ");
-		return Console.ReadLine() ?? "";
-	}
-
 }

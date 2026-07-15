@@ -2,101 +2,104 @@
 
 internal class CmdArgs
 {
-	readonly List<string> args = [];
-	readonly Dictionary<string, string> kargs = [];
-	readonly Dictionary<int, string> argsUnused = [];
-	readonly Dictionary<string, string> kargsUnused = [];
+	private readonly List<string> _unnamedArgs = [];
+	private readonly Dictionary<string, string> _namedArgs = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+	private readonly Dictionary<int, string> _unknownUnnamedArgs = [];
+	private readonly Dictionary<string, string> _unknownNamedArgs = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
 	public CmdArgs(string[] args)
 	{
 		for (int i = 0; i < args.Length; i++)
 		{
 			var arg = args[i];
-			var key = false;
+
+			var isNamed = false;
 			if (arg.StartsWith("--"))
 			{
-				key = true;
+				isNamed = true;
 				arg = arg[2..];
 			}
-			if (arg.StartsWith('/') || arg.StartsWith('-'))
+			else if (arg.StartsWith('/') || arg.StartsWith('-'))
 			{
 				if (arg.Count('/') <= 1)
 				{
-					key = true;
+					isNamed = true;
 					arg = arg[1..];
 				}
 			}
-			if (!key)
+
+			if (!isNamed)
 			{
-				this.args.Add(arg);
-				continue;
+				_unnamedArgs.Add(arg);
+			}			
+			else if (arg.IndexOfAny('=', ':') is var j1 && j1 >= 0)
+			{
+				AddNamedArg(arg[..j1], arg[(j1 + 1)..]);
 			}
-			if (arg.IndexOf('=') is var j1 && j1 >= 0)
-				AddKArg(arg[..j1], arg[(j1 + 1)..]);
-			else if (arg.IndexOf(':') is var j2 && j2 >= 0)
-				AddKArg(arg[..j2], arg[(j2 + 1)..]);
 			else if (args.Length <= i + 1 || args[i + 1].StartsWith('-') || (args[i + 1].StartsWith('/') && args[i + 1].Count('/') == 1))
-				AddKArg(arg, "");
+			{
+				AddNamedArg(arg, "");
+			}
 			else
-				AddKArg(arg, args[++i]);
+			{
+				AddNamedArg(arg, args[++i]);
+			}
 		}
-		argsUnused = this.args.Select((value, index) => new { value, index }).ToDictionary(x => x.index, x => x.value);
-		kargsUnused = new Dictionary<string, string>(kargs);
+		_unknownUnnamedArgs = _unnamedArgs.Select((value, index) => new { value, index }).ToDictionary(x => x.index, x => x.value);
+		_unknownNamedArgs = new Dictionary<string, string>(_namedArgs, StringComparer.InvariantCultureIgnoreCase);
 	}
 
-	private void AddKArg(string key, string value)
-	{
-		if (kargs.ContainsKey(key))
-			throw new CmdArgException($"{key} was passed multiple times");
-		kargs[key] = value;
-	}
+	public int Length => _unnamedArgs.Count;
 
+	public string Get(int index, string name) => getParameterByIndex(index, name, throwOnMissing: true) ?? "";
+	public string Get(params string[] keys) => getParameterByName(keys, throwOnMissing: true) ?? "";
+	public string? GetOptional(int index, string name) => getParameterByIndex(index, name, throwOnMissing: false);
+	public string? GetOptional(params string[] keys) => getParameterByName(keys, throwOnMissing: false);
 
-	public string this[int index, string name = ""]
+	private string? getParameterByIndex(int index, string name, bool throwOnMissing)
 	{
-		get
+		if (index >= _unnamedArgs.Count)
 		{
-			if (index >= args.Count)
-				throw new MissingsArgException("Missing required positional argument" + (name == "" ? "" : $": {name}"));
-			argsUnused.Remove(index);
-			return args[index];
+			if (throwOnMissing) throw new MissingsArgException("Missing required positional argument" + (name == "" ? "" : $": {name}"));
+			return null;
 		}
-	}
 
-	public string this[params string[] keys]
+		_unknownUnnamedArgs.Remove(index);
+
+		return _unnamedArgs[index];
+	}
+	private string? getParameterByName(string[] keys, bool throwOnMissing)
 	{
-		get
+		var existingKeys = keys.Where(_namedArgs.ContainsKey).ToList();
+		if (existingKeys == null || existingKeys.Count == 0)
 		{
-			var existingKeys = keys.Where(kargs.ContainsKey).ToList();
-			if (existingKeys == null || existingKeys.Count == 0) throw new MissingsArgException($"Missing required argument: {string.Join(" | ", keys)}");
-			if (existingKeys.Count > 1) throw new CmdArgException($"{keys[0]} was passed multiple times");
-			var key = existingKeys[0];
-			kargsUnused.Remove(key);
-			return kargs[key];
+			if (throwOnMissing) throw new MissingsArgException($"Missing required argument: {string.Join(" | ", keys)}");
+			return null;
 		}
-	}
-	public int Length => args.Count;
 
-	public string? Get(int index)
-	{
-		try { return this[index]; }
-		catch (MissingsArgException) { return null; }
-	}
-	public string? Get(params string[] keys)
-	{
-		try { return this[keys]; }
-		catch (MissingsArgException) { return null; }
+		if (existingKeys.Count > 1) throw new CmdArgException($"{keys[0]} was passed multiple times");
+
+		var key = existingKeys[0];
+		_unknownNamedArgs.Remove(key);
+
+		return _namedArgs[key];
 	}
 
-	public bool Contains(string item) => args.Contains(item);
-	public bool ContainsKey(params string[] keys) => keys.Any(kargs.ContainsKey);
+	public bool Contains(string item) => _unnamedArgs.Contains(item);
+	public bool ContainsKey(params string[] keys) => keys.Any(_namedArgs.ContainsKey);
 
-	public void AssertUnknownArgs()
+	public void CheckUnknownArgs()
 	{
-		if (argsUnused.Count > 0)
-			throw new CmdArgException($"Unknown extra positional arguments: {string.Join(", ", argsUnused.ToList().Select(p => p.Value))}");
-		if (kargsUnused.Count > 0)
-			throw new CmdArgException($"Unknown named arguments: {string.Join(", ", kargsUnused.ToList().Select(p => p.Key))}");
+		if (_unknownUnnamedArgs.Count > 0)
+			throw new CmdArgException($"Unknown extra positional arguments: {string.Join(", ", _unknownUnnamedArgs.ToList().Select(p => p.Value))}");
+
+		if (_unknownNamedArgs.Count > 0)
+			throw new CmdArgException($"Unknown named arguments: {string.Join(", ", _unknownNamedArgs.ToList().Select(p => p.Key))}");
+	}
+
+	private void AddNamedArg(string key, string value)
+	{
+		if (!_namedArgs.TryAdd(key, value)) throw new CmdArgException($"{key} was passed multiple times");
 	}
 }
 
