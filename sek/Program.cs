@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.CommandLine;
+using System.Diagnostics;
 using OtpNet;
 using sek;
 
@@ -6,64 +7,121 @@ class Program
 {
 	public static int Main(string[] args)
 	{
+		var folderOption = new Option<string>("--folder", "-d") { Description = "Путь к папке, в которой находится файл данных" };
+		var fileOption = new Option<string>("--file", "-f") { Description = "Имя файла данных" };
+		var archiveOption = new Option<string>("--archive", "-a") { Description = "Имя файла архива, в котором может лежать файл данных" };
+		var paramOption = new Option<string>("--param", "-p") { Description = "Имя искомого параметра", DefaultValueFactory = _ => "pwd" };
+		var sectionOption = new Option<string>("--section", "-s")  { Description = "Имя раздела, в котором нужно искать параметр" };
+
+		var rootCommand = new RootCommand("Console utility for extracting passwords and generating TOTP codes.")
+		{
+			folderOption,
+			fileOption,
+			archiveOption,
+			paramOption,
+			sectionOption,
+		};
+
 		if (args.Length == 0)
 		{
-			showHelp();
+			rootCommand.Parse("--help").Invoke();
 			return 1;
 		}
 
-		try
+		rootCommand.SetAction(parseResult =>
 		{
-			var _args = new CmdArgs(args);
-
 			var cmdArgs = new CommandArgs
 			{
-				BasePath = _args.GetOptional("folder", "d") ?? "",
-				ArchiveName = _args.GetOptional("archive", "a"),
-				FileName = _args.GetOptional("file", "f"),
-				ParamName = _args.GetOptional("key", "k"),
-				SectionName = _args.GetOptional("section", "s") ?? "",
+				BasePath = parseResult.GetValue(folderOption),
+				FileName = parseResult.GetValue(fileOption),
+				ArchiveName = parseResult.GetValue(archiveOption),
+				ParamName = parseResult.GetValue(paramOption) ?? "",
+				SectionName = parseResult.GetValue(sectionOption) ?? "",
 			};
 
-			_args.CheckUnknownArgs();
-
-			var dataSource = new DataSourceProvider(cmdArgs, RequestMasterPassword).OpenDataSource();
-
-			var paramName = cmdArgs.ParamName ?? "pwd";
-			string[] paramNames = paramName.Equals("pwd", StringComparison.InvariantCultureIgnoreCase) ? ["pwd", "password", "пароль"] : [paramName];
-
-			var svx = new SecretValueExtractor(dataSource, cmdArgs.SectionName, paramNames);
-
-			Debug.WriteLine($"datasource : {dataSource.dataSourceDescription}");
-			Debug.WriteLine($"section    : {cmdArgs.SectionName}");
-			Debug.WriteLine($"paramNames : {string.Join(", ", paramNames)}");
-
-			var paramValue = svx.ExtractValue() ?? throw new Exception(BuldErrMsg(dataSource.dataSourceDescription, cmdArgs, paramNames));
-
-			string result;
-
-			if (cmdArgs.ParamName.EqualsCI("totp"))
+			try
 			{
-				result = ComputeTotp(paramValue);
+				var result = ExtractParamValue(cmdArgs);
+
+				Debug.WriteLine($"result     : {result}");
+
+				Console.WriteLine(result);
+
+				return 0;
 			}
-			else
+			catch (Exception x)
 			{
-				result = paramValue;
+				Debug.WriteLine(x.Message);
+
+				Console.Error.WriteLine(x.Message);
+				return 1;
 			}
+		});
 
-			Debug.WriteLine($"result     : {result}");
+		return rootCommand.Parse(args).Invoke();
+	}
+	private static string ExtractParamValue(CommandArgs cmdArgs)
+	{
+		var dataSource = new DataSourceProvider(cmdArgs, RequestMasterPassword).OpenDataSource();
 
-			Console.WriteLine(result);
+		string[] paramNames = cmdArgs.ParamName.Equals("pwd", StringComparison.InvariantCultureIgnoreCase) ? ["pwd", "password", "пароль"] : [cmdArgs.ParamName];
 
-			return 0;
-		}
-		catch (Exception x)
+		var svx = new SecretValueExtractor(dataSource, cmdArgs.SectionName, paramNames);
+
+		Debug.WriteLine($"datasource : {dataSource.dataSourceDescription}");
+		Debug.WriteLine($"section    : {cmdArgs.SectionName}");
+		Debug.WriteLine($"paramNames : {string.Join(", ", paramNames)}");
+
+		var paramValue = svx.ExtractValue() ?? throw new Exception(BuldErrMsg(dataSource.dataSourceDescription, cmdArgs, paramNames));
+
+		string result;
+
+		if (cmdArgs.ParamName.EqualsCI("totp"))
 		{
-			Debug.WriteLine(x.Message);
-
-			Console.Error.WriteLine(x.Message);
-			return 1;
+			result = ComputeTotp(paramValue);
 		}
+		else
+		{
+			result = paramValue;
+		}
+
+		return result;
+	}
+	private static string ComputeTotp(string secretKey)
+	{
+		var secretBytes = Base32Encoding.ToBytes(secretKey);
+		var totp = new Totp(secretBytes, 30, OtpHashMode.Sha1, 6);
+		return totp.ComputeTotp();
+	}
+	private static string RequestMasterPassword()
+	{
+		if (!IsConsoleRedirected()) Console.Write("Enter master password:");
+
+		return Console.ReadLine() ?? "";
+	}
+	private static bool IsConsoleRedirected()
+	{
+		return Console.IsInputRedirected || Console.IsOutputRedirected;
+	}
+	private static string BuldErrMsg(string dataSourceName, CommandArgs cmdArgs, string[] paramNames)
+	{
+		if (paramNames.Length == 0) return "Keys are not defined";
+
+		var sectionName = cmdArgs.SectionName.IsEmpty() ? $"main part" : $"section \"{cmdArgs.SectionName}\"";
+
+		string errMsgKey;
+
+		if (paramNames.Length > 1)
+		{
+			var keyNames = string.Join(", ", paramNames);
+			errMsgKey = $"None of keys [{keyNames}] found";
+		}
+		else
+		{
+			errMsgKey = $"Key '{paramNames[0]}' not found";
+		}
+
+		return $"{errMsgKey} in {sectionName} of {dataSourceName}";
 	}
 
 	private static void showHelp()
@@ -97,41 +155,5 @@ class Program
 		  - Errors are written to stderr.
 		  - Master passwords for encrypted ZIPs can be piped via stdin or entered interactively.
 		""");
-	}
-	private static string ComputeTotp(string secretKey)
-	{
-		var secretBytes = Base32Encoding.ToBytes(secretKey);
-		var totp = new Totp(secretBytes, 30, OtpHashMode.Sha1, 6);
-		return totp.ComputeTotp();
-	}
-	private static string RequestMasterPassword()
-	{
-		if (!IsConsoleRedirected()) Console.Write("Enter master password:");
-
-		return Console.ReadLine() ?? "";
-	}
-	private static bool IsConsoleRedirected()
-	{
-		return Console.IsInputRedirected || Console.IsOutputRedirected;
-	}
-	private static string BuldErrMsg(string dataSourceName, CommandArgs cmdArgs, IReadOnlyList<string> paramNames)
-	{
-		if (paramNames.Count == 0) return "Keys are not defined";
-
-		var sectionName = cmdArgs.SectionName.IsEmpty() ? $"main part" : $"section \"{cmdArgs.SectionName}\"";
-
-		string errMsgKey;
-
-		if (paramNames.Count > 1)
-		{
-			var keyNames = string.Join(", ", paramNames);
-			errMsgKey = $"None of keys [{keyNames}] found";
-		}
-		else
-		{
-			errMsgKey = $"Key '{paramNames[0]}' not found";
-		}
-
-		return $"{errMsgKey} in {sectionName} of {dataSourceName}";
 	}
 }

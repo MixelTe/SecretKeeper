@@ -6,9 +6,9 @@
         "workingDirectory": "D:\\tmp\\sek"
     },
     "file": {
-      "commandName": "Project",
-      "commandLineArgs": "--file test.txt",
-      "workingDirectory": "D:\\tmp\\sek"
+        "commandName": "Project",
+        "commandLineArgs": "--file test.txt",
+        "workingDirectory": "D:\\tmp\\sek"
     }
   }
 }
