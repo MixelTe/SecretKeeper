@@ -1,4 +1,6 @@
-﻿record CommandArgs
+﻿namespace sek;
+
+record CommandArgs
 {
 	public required string? BasePath { init; get; }
 	public required string? ArchiveName { init; get; }

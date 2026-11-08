@@ -8,7 +8,6 @@ class SecretValueExtractor(DataSource dataSource, string sectionName, string[] p
 
 	public string? ExtractValue()
 	{
-		using (dataSource.container)
 		using (var reader = new StreamReader(dataSource.stream, detectEncodingFromByteOrderMarks: true))
 		{
 			var reSection = new Regex(@"^-{3,}\s*(?'name'.*?)\s*-*\s*$");

@@ -6,37 +6,20 @@ namespace sek;
 
 static class ValueExtractor
 {
-	internal static int ExtractOrGenerateValue(CommandArgs cmdArgs)
+	internal static string ExtractOrGenerateValue(CommandArgs cmdArgs)
 	{
-		try
+		var dataSource = new DataSourceProvider(cmdArgs, RequestMasterPassword).OpenDataSource();
+		using (dataSource.container)
 		{
-			if (Console.IsInputRedirected) Console.InputEncoding = Encoding.UTF8;
-			if (Console.IsOutputRedirected) Console.OutputEncoding = Encoding.UTF8;
-
-			var dataSource = new DataSourceProvider(cmdArgs, RequestMasterPassword).OpenDataSource();
-
 			var paramNames = GetParamNames(cmdArgs);
-			var svx = new SecretValueExtractor(dataSource, cmdArgs.SectionName, paramNames);
 
 			Debug.WriteLine($"datasource : {dataSource.dataSourceDescription}");
 			Debug.WriteLine($"section    : {cmdArgs.SectionName}");
 			Debug.WriteLine($"paramNames : {string.Join(", ", paramNames)}");
 
+			var svx = new SecretValueExtractor(dataSource, cmdArgs.SectionName, paramNames);
 			var paramValue = svx.ExtractValue() ?? throw new Exception(BuldErrMsg(dataSource.dataSourceDescription, cmdArgs, paramNames));
-			var result = MakeResult(paramValue, cmdArgs.ParamName);
-
-			Debug.WriteLine($"result     : {result}");
-
-			Console.Write(result);
-
-			return 0;
-		}
-		catch (Exception x)
-		{
-			Debug.WriteLine(x.Message);
-
-			Console.Error.WriteLine(x.Message);
-			return 1;
+			return MakeResult(paramValue, cmdArgs.ParamName);
 		}
 	}
 	private static string[] GetParamNames(CommandArgs cmdArgs)

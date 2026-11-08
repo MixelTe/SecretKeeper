@@ -1,4 +1,6 @@
 ﻿using System.CommandLine;
+using System.Diagnostics;
+using System.Text;
 using sek;
 
 var folderOption = new Option<string>("--folder", "-d") { Description = "Путь к папке, в которой находится файл данных" };
@@ -42,7 +44,26 @@ rootCommand.SetAction(parseResult =>
 		SectionName = parseResult.GetValue(sectionOption) ?? "",
 	};
 
-	return ValueExtractor.ExtractOrGenerateValue(cmdArgs);
+	try
+	{
+		if (Console.IsInputRedirected) Console.InputEncoding = Encoding.UTF8;
+		if (Console.IsOutputRedirected) Console.OutputEncoding = Encoding.UTF8;
+
+		var result = ValueExtractor.ExtractOrGenerateValue(cmdArgs);
+		Debug.WriteLine($"result : {result}");
+
+		Console.Write(result);
+
+		return 0;
+	}
+	catch (Exception x)
+	{
+		Debug.WriteLine(x.Message);
+
+		Console.Error.WriteLine(x.Message);
+		
+		return 1;
+	}
 });
 
 return rootCommand.Parse(args).Invoke();
