@@ -1,14 +1,15 @@
 ﻿using System.Diagnostics;
-using System.Text;
 using OtpNet;
 
-namespace sek;
+namespace SecretKeeper;
 
 static class ValueExtractor
 {
 	internal static string ExtractOrGenerateValue(CommandArgs cmdArgs)
 	{
-		var dataSource = new DataSourceProvider(cmdArgs, RequestMasterPassword).OpenDataSource();
+		var dataSourceProvider = new DataSourceProvider(cmdArgs, RequestMasterPassword);
+		var dataSource = dataSourceProvider.OpenDataSource();
+
 		using (dataSource.container)
 		{
 			var paramNames = GetParamNames(cmdArgs);

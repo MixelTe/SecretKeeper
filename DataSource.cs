@@ -1,4 +1,4 @@
-﻿namespace sek;
+﻿namespace SecretKeeper;
 
 struct DataSource
 {

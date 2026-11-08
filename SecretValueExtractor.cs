@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace sek;
+namespace SecretKeeper;
 
 class SecretValueExtractor(DataSource dataSource, string sectionName, string[] paramNames)
 {

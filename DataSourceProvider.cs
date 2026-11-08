@@ -1,6 +1,6 @@
 ﻿using ICSharpCode.SharpZipLib.Zip;
 
-namespace sek;
+namespace SecretKeeper;
 
 class DataSourceProvider(CommandArgs cmdArgs, Func<string> requestMasterPassword)
 {

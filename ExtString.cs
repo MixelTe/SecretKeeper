@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace sek;
+namespace SecretKeeper;
 
 public static class ExtString
 {

@@ -1,7 +1,7 @@
 ﻿using System.CommandLine;
 using System.Diagnostics;
 using System.Text;
-using sek;
+using SecretKeeper;
 
 var folderOption = new Option<string>("--folder", "-d") { Description = "Путь к папке, в которой находится файл данных" };
 var fileOption = new Option<string>("--file", "-f") { Description = "Имя файла данных" };
