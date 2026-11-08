@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "SecretKeeper": {
-      "commandName": "Project",
-      "commandLineArgs": "D:\\tmp\\secrets\\gos2"
-    }
-  }
-}
