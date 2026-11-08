@@ -11,7 +11,7 @@ const string RootCommandDescription = """
 SecretKeeper:Exractor — Console utility for extracting passwords and generating TOTP codes.
 			
 I/O Communication:
-	- Passwords/TOTP secrets are written directly to stdout.
+	- Passwords/TOTP secrets are written directly to stdout (w/o EOL).
 	- Errors are written to stderr.
 	- Master passwords for encrypted ZIPs can be piped via stdin or entered interactively.
 """;

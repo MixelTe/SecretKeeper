@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using OtpNet;
 
 namespace sek;
@@ -9,6 +10,9 @@ static class ValueExtractor
 	{
 		try
 		{
+			if (Console.IsInputRedirected) Console.InputEncoding = Encoding.UTF8;
+			if (Console.IsOutputRedirected) Console.OutputEncoding = Encoding.UTF8;
+
 			var dataSource = new DataSourceProvider(cmdArgs, RequestMasterPassword).OpenDataSource();
 
 			var paramNames = GetParamNames(cmdArgs);
@@ -23,7 +27,7 @@ static class ValueExtractor
 
 			Debug.WriteLine($"result     : {result}");
 
-			Console.WriteLine(result);
+			Console.Write(result);
 
 			return 0;
 		}
