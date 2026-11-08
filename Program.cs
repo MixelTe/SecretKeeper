@@ -3,7 +3,7 @@ using sek;
 
 var folderOption = new Option<string>("--folder", "-d") { Description = "Путь к папке, в которой находится файл данных" };
 var fileOption = new Option<string>("--file", "-f") { Description = "Имя файла данных" };
-var archiveOption = new Option<string>("--archive", "-a") { Description = "Имя файла архива, в котором может лежать файл данных" };
+var archiveOption = new Option<string>("--archive", "-a") { Description = "Имя файла архива, в котором находится файл данных" };
 var paramOption = new Option<string>("--param", "-p") { Description = "Имя искомого параметра", DefaultValueFactory = _ => "pwd" };
 var sectionOption = new Option<string>("--section", "-s") { Description = "Имя раздела, в котором нужно искать параметр" };
 
